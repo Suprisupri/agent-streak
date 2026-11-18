@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Streak — Daily Check-in for Agent ID Holders</title>
+  <meta name="description" content="Agent Streak: a daily check-in dApp for Agent ID holders. Build your streak on-chain and claim soulbound badges at 7, 14 and 30 days." />
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "ethers": "https://cdn.jsdelivr.net/npm/ethers@6.13.4/+esm"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">🔥</span>
+        <div>
+          <h1>Agent Streak</h1>
+          <p class="tagline">Daily check-in for Agent ID holders</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="chain-indicator" class="pill pill-muted" title="Current network">Not connected</span>
+        <button id="switch-chain-btn" class="btn btn-secondary hidden">Switch to BNB Chain</button>
+        <button id="connect-btn" class="btn btn-primary">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Shown only while CONTRACT_ADDRESS is still the zero address -->
+    <section id="deploy-banner" class="banner banner-warn hidden" role="status">
+      <strong>Contract not deployed yet.</strong>
+      This is a preview: you can connect a wallet and check your Agent ID status,
+      but check-in, badges and the leaderboard activate once the AgentStreak
+      contract address is added to <code>config.js</code>.
+    </section>
+
+    <section id="paused-banner" class="banner banner-warn hidden" role="status">
+      <strong>Check-ins are currently paused.</strong>
+      The contract owner has paused the contract. Please try again later.
+    </section>
+
+    <!-- Agent ID status -->
+    <section class="card" aria-labelledby="agent-id-heading">
+      <h2 id="agent-id-heading">Agent ID Status</h2>
+      <p id="agent-id-status" class="status-line">Connect your wallet to check your Agent ID.</p>
+      <p id="agent-id-hint" class="muted hidden">
+        No Agent ID yet? Claim one in the Binance app: Wallet &gt; banner &gt; Agent ID.
+        Check-in requires an Agent ID.
+      </p>
+      <p id="wallet-address" class="muted mono hidden"></p>
+    </section>
+
+    <!-- Streak -->
+    <section class="card" aria-labelledby="streak-heading">
+      <h2 id="streak-heading">Your Streak</h2>
+      <div class="stats-grid">
+        <div class="stat">
+          <span class="stat-label">Current streak</span>
+          <span id="stat-current" class="stat-value">—</span>
+          <span class="stat-unit">days</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Best streak</span>
+          <span id="stat-best" class="stat-value">—</span>
+          <span class="stat-unit">days</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Your check-ins</span>
+          <span id="stat-total" class="stat-value">—</span>
+          <span class="stat-unit">total</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Today (UTC)</span>
+          <span id="stat-today" class="stat-value stat-value-small">—</span>
+        </div>
+      </div>
+      <p class="muted small">
+        One check-in per day (UTC). Miss a day and your current streak resets to zero;
+        your best streak is kept forever.
+      </p>
+      <button id="checkin-btn" class="btn btn-primary btn-large" disabled>Check In Today</button>
+      <p id="checkin-status" class="status-line small" role="status"></p>
+      <p id="checkin-tx" class="small hidden">
+        Transaction: <a id="checkin-tx-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+      </p>
+      <hr class="divider" />
+      <p class="muted small">
+        <span id="global-users">—</span> users &middot; <span id="global-checkins">—</span> check-ins worldwide
+      </p>
+    </section>
+
+    <!-- Badges -->
+    <section class="card" aria-labelledby="badges-heading">
+      <h2 id="badges-heading">Badges</h2>
+      <p class="muted small">
+        Soulbound badges, claimable once your streak reaches a milestone.
+        Badges cannot be transferred or sold.
+      </p>
+      <div id="badge-list" class="badge-grid"><!-- populated by app.js --></div>
+      <p id="badge-status" class="status-line small" role="status"></p>
+    </section>
+
+    <!-- Leaderboard -->
+    <section class="card" aria-labelledby="leaderboard-heading">
+      <h2 id="leaderboard-heading">Leaderboard</h2>
+      <p class="muted small">
+        Best streaks, read live from on-chain check-in events. Only addresses that
+        have checked in appear here.
+      </p>
+      <div class="leaderboard-actions">
+        <button id="leaderboard-refresh-btn" class="btn btn-secondary btn-small">Refresh</button>
+      </div>
+      <p id="leaderboard-status" class="status-line small" role="status">Loading…</p>
+      <div class="table-wrap">
+        <table id="leaderboard-table" class="leaderboard-table hidden">
+          <thead>
+            <tr><th>#</th><th>Address</th><th>Best streak</th></tr>
+          </thead>
+          <tbody id="leaderboard-body"></tbody>
+        </table>
+      </div>
+      <button id="leaderboard-retry-btn" class="btn btn-secondary btn-small hidden">Retry</button>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>
+        <a id="footer-contract-link" href="#" target="_blank" rel="noopener noreferrer">Contract on BscScan</a>
+        &middot;
+        <a id="footer-github-link" href="#" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </p>
+      <p class="muted small">
+        No funds are held by this contract. Check-ins and badges are free except network gas.
+        No returns are promised.
+      </p>
+      <p class="muted small">
+        This site never asks for your seed phrase or private key. Every transaction is
+        confirmed by you, in your own wallet. No login session is stored.
+      </p>
+    </div>
+  </footer>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
